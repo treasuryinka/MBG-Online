@@ -402,13 +402,36 @@
     // === KONFIGURASI SUPABASE ===
     const { createClient } = supabase;
 
-    // GANTI DUA BARIS INI DENGAN PUNYA KAMU (sekarang sudah isi dari kamu)
     const SUPABASE_URL = 'https://bsqcrfkgpkeekzlytacq.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzcWNyZmtncGtlZWt6bHl0YWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MDY4MjksImV4cCI6MjA3OTE4MjgyOX0.7wmtfM-AcW34MqbhgbksCyCQAQD6L272oPTRdqgRiVY';
 
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // === HELPER MAPPING DB <-> FRONT-END ===
+    // === HELPER MAPPING & SANITASI DATA ===
+
+    // sanitasi angka sebelum dikirim ke Supabase
+    function parseNumberField(value) {
+      if (value === null || value === undefined) return null;
+      if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+      }
+      let s = String(value).trim();
+      if (!s || s === "-" || s.toLowerCase() === "na") return null;
+      // hilangkan titik ribuan, koma jadi desimal
+      s = s.replace(/\./g, "").replace(/,/g, ".");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    // sanitasi tanggal (kalau "-", kosong → null)
+    function parseDateField(value) {
+      if (!value) return null;
+      const s = String(value).trim();
+      if (!s || s === "-" || s.toLowerCase() === "na") return null;
+      // diasumsikan format sudah YYYY-MM-DD
+      return s;
+    }
+
     function mapBGFromDB(row) {
       return {
         "Kode Unik": row.kode_unik,
@@ -428,16 +451,16 @@
     function mapBGToDB(d) {
       return {
         kode_unik: d["Kode Unik"],
-        nomor_bg: d["Nomor BG"],
-        nama_bank: d["Nama Bank"],
-        jenis_bg: d["Jenis Bank Garansi"],
-        no_po: d["No PO"],
-        currency: d["Currency"],
-        nilai_bg: Number(d["Nilai BG"] || 0),
-        nama_vendor: d["Nama Vendor"],
-        tgl_terbit: d["Tanggal Terbit BG"],
-        tgl_expired: d["Tanggal BG Expired"],
-        keterangan: d["Keterangan"]
+        nomor_bg: d["Nomor BG"] || null,
+        nama_bank: d["Nama Bank"] || null,
+        jenis_bg: d["Jenis Bank Garansi"] || null,
+        no_po: d["No PO"] || null,
+        currency: d["Currency"] || null,
+        nilai_bg: parseNumberField(d["Nilai BG"]),
+        nama_vendor: d["Nama Vendor"] || null,
+        tgl_terbit: parseDateField(d["Tanggal Terbit BG"]),
+        tgl_expired: parseDateField(d["Tanggal BG Expired"]),
+        keterangan: d["Keterangan"] || null
       };
     }
 
@@ -459,16 +482,14 @@
     function mapReturnToDB(r) {
       return {
         kode_unik: r["Kode Unik"],
-        nomor_bg: r["Nomor BG"],
-        nama_vendor: r["Nama Vendor"],
-        nama_bank: r["Nama Bank"],
-        currency: r["Currency"],
-        nilai_bg: Number(r["Nilai BG"] || 0),
-        tanggal_bg_expired: r["Tanggal BG Expired"],
-        tgl_pengembalian: r["Tanggal Pengembalian"],
-        nilai_dikembalikan: r["Nilai Dikembalikan"]
-          ? Number(r["Nilai Dikembalikan"])
-          : null,
+        nomor_bg: r["Nomor BG"] || null,
+        nama_vendor: r["Nama Vendor"] || null,
+        nama_bank: r["Nama Bank"] || null,
+        currency: r["Currency"] || null,
+        nilai_bg: parseNumberField(r["Nilai BG"]),
+        tanggal_bg_expired: parseDateField(r["Tanggal BG Expired"]),
+        tgl_pengembalian: parseDateField(r["Tanggal Pengembalian"]),
+        nilai_dikembalikan: parseNumberField(r["Nilai Dikembalikan"]),
         keterangan_pengembalian: r["Keterangan Pengembalian"] || ""
       };
     }
