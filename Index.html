@@ -2,68 +2,350 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>BG Online (Demo Supabase)</title>
+  <title>Manajemen Bank Garansi</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap 5 -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <!-- Icons -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css"
+    rel="stylesheet"
+  />
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Supabase JS -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      background: #f8f9fa;
+    }
+    .card {
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    .badge {
+      font-size: 0.9em;
+    }
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+    }
+    table th,
+    table td {
+      vertical-align: middle;
+    }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container py-4">
-    <h2 class="mb-3 text-center">Demo BG Online (Supabase)</h2>
-    <p class="text-center text-muted mb-4">
-      Contoh sederhana: Login + baca/tambah data BG ke Supabase.
-    </p>
+<body>
+  <div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="text-center mb-4">
+      <h2><i class="bi bi-shield-lock"></i> Manajemen Bank Garansi</h2>
+      <p class="text-muted">
+        Input, monitoring, impor/ekspor, dan manajemen Bank Garansi
+      </p>
+      <a
+        href="https://drive.google.com/drive/folders/12xhy0DF4ElA-C0-aeNC0HDIz8XRix0LI?usp=drive_link"
+        target="_blank"
+        class="btn btn-outline-dark btn-sm"
+        ><i class="bi bi-box-arrow-up-right"></i> Google Drive</a
+      >
+    </div>
 
-    <!-- AUTH VIEW -->
-    <div id="auth-view" class="card mx-auto" style="max-width: 420px;">
-      <div class="card-body">
-        <h5 class="card-title mb-3">Login / Register</h5>
-        <div class="mb-3">
-          <label class="form-label">Email</label>
-          <input type="email" id="auth-email" class="form-control" />
+    <!-- Resume Dashboard -->
+    <div class="row mb-4" id="resumeDashboard">
+      <div class="col-md-4">
+        <div class="card text-bg-success">
+          <div class="card-body text-center">
+            <h5>Aktif</h5>
+            <h3 id="resumeAktif">0</h3>
+          </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label">Password</label>
-          <input type="password" id="auth-password" class="form-control" />
+      </div>
+      <div class="col-md-4">
+        <div class="card text-bg-warning">
+          <div class="card-body text-center">
+            <h5>Akan Expired</h5>
+            <h3 id="resumeAkan">0</h3>
+          </div>
         </div>
-        <div class="d-flex justify-content-between">
-          <button id="btn-login" class="btn btn-primary btn-sm">Login</button>
-          <button id="btn-register" class="btn btn-outline-secondary btn-sm">Register</button>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-bg-danger">
+          <div class="card-body text-center">
+            <h5>Expired</h5>
+            <h3 id="resumeExpired">0</h3>
+          </div>
         </div>
-        <div id="auth-message" class="mt-3 text-danger small"></div>
       </div>
     </div>
 
-    <!-- APP VIEW -->
-    <div id="app-view" style="display:none;">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <span class="text-muted small">Login sebagai:</span>
-          <strong id="user-email"></strong>
-        </div>
-        <button id="btn-logout" class="btn btn-sm btn-danger">Logout</button>
+    <!-- Input Form -->
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">
+        <i class="bi bi-plus-circle"></i> Input Data BG
       </div>
+      <div class="card-body">
+        <form id="bgForm" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Nomor BG</label>
+            <input type="text" id="nomorBG" class="form-control" required />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Nama Bank</label>
+            <input type="text" id="namaBank" class="form-control" required />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Jenis Bank Garansi</label>
+            <select id="jenisBankGaransi" class="form-select" required>
+              <option value="Jaminan Uang Muka">Jaminan Uang Muka</option>
+              <option value="Jaminan Pelaksanaan">Jaminan Pelaksanaan</option>
+              <option value="Jaminan Pemeliharaan">Jaminan Pemeliharaan</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Nama Vendor</label>
+            <input type="text" id="namaVendor" class="form-control" required />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Currency</label>
+            <select id="currency" class="form-select" required>
+              <option value="IDR">IDR</option>
+              <option value="USD">USD</option>
+              <option value="CNY">CNY</option>
+              <option value="EUR">EUR</option>
+              <option value="SGD">SGD</option>
+              <option value="JPY">JPY</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Nomor PO</label>
+            <input type="text" id="nomorPO" class="form-control" required />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Nilai BG</label>
+            <input type="number" id="nilaiBG" class="form-control" required />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tanggal Terbit</label>
+            <input type="date" id="tglTerbit" class="form-control" required />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tanggal Expired</label>
+            <input type="date" id="tglExpired" class="form-control" required />
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Keterangan</label>
+            <input type="text" id="keterangan" class="form-control" />
+          </div>
+          <div class="col-md-12 text-end">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-save"></i> Simpan</button>
+            <button type="button" id="resetFormBtn" class="btn btn-secondary">
+              <i class="bi bi-eraser"></i> Reset Form
+            </button>
+            <button type="button" id="clearAllBtn" class="btn btn-danger">
+              <i class="bi bi-trash"></i> Hapus Semua Data
+            </button>
+            <!-- old submit hidden to keep compatibility -->
+            <button type="submit" class="btn btn-success" style="display:none">
+              <i class="bi bi-save"></i> Simpan
+            </button>
+            <button
+              type="button"
+              id="resetBtn"
+              class="btn btn-secondary"
+            ><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      <!-- Form tambah BG sederhana -->
-      <div class="card mb-4">
-        <div class="card-header">Tambah BG (minimal)</div>
-        <div class="card-body">
-          <form id="form-add-bg" class="row g-3">
-            <div class="col-md-4">
+    <!-- Filter & Import/Export -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <select
+          id="filterStatus"
+          class="form-select form-select-sm w-auto d-inline"
+        >
+          <option value="all">Semua Status</option>
+          <option value="aktif">Aktif</option>
+          <option value="akan">Akan Expired</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <div>
+        <input
+          type="file"
+          id="importExcel"
+          class="form-control form-control-sm d-inline w-auto"
+        />
+        <button class="btn btn-sm btn-outline-success" id="execImport">
+          <i class="bi bi-upload"></i> Import
+        </button>
+        <button class="btn btn-sm btn-outline-primary" id="exportExcel">
+          <i class="bi bi-download"></i> Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table
+            class="table table-bordered table-striped align-middle text-center"
+            id="bgTable"
+          >
+            <thead class="table-dark">
+              <tr>
+                <th>Kode Unik</th>
+                <th>Nomor BG</th>
+                <th>Nama Bank</th>
+                <th>Jenis Bank Garansi</th>
+                <th>No PO</th>
+                <th>Currency</th>
+                <th>Nilai Currency</th>
+                <th>Nama Vendor</th>
+                <th>Tanggal Terbit BG</th>
+                <th>Tanggal BG Expired</th>
+                <th>Keterangan</th>
+                <th>Status BG</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <nav>
+          <ul class="pagination justify-content-center" id="pagination"></ul>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Pengembalian & Rekap Pengembalian BG -->
+    <div class="card mt-4">
+      <div class="card-header bg-success text-white">
+        <i class="bi bi-arrow-counterclockwise"></i> Pengembalian BG & Rekap
+      </div>
+      <div class="card-body">
+        <!-- Form input pengembalian -->
+        <form id="returnForm" class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Pilih BG</label>
+            <select id="returnKodeUnik" class="form-select" required>
+              <!-- diisi lewat JS -->
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tanggal Pengembalian</label>
+            <input type="date" id="returnDate" class="form-control" required />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Nilai Dikembalikan</label>
+            <input type="number" id="returnAmount" class="form-control" />
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Keterangan Pengembalian</label>
+            <input type="text" id="returnNote" class="form-control" />
+          </div>
+          <div class="col-md-12 text-end">
+            <button type="submit" class="btn btn-success btn-sm">
+              <i class="bi bi-check-circle"></i> Simpan Pengembalian
+            </button>
+          </div>
+        </form>
+
+        <hr />
+
+        <!-- Ringkasan singkat -->
+        <div class="row mb-2">
+          <div class="col-md-4">
+            <div class="alert alert-success py-2 mb-2">
+              Total BG dikembalikan: <strong id="totalReturnCount">0</strong>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="alert alert-primary py-2 mb-2">
+              Total nilai dikembalikan:
+              <strong id="totalReturnAmount">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabel rekap pengembalian -->
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered text-center">
+            <thead class="table-success">
+              <tr>
+                <th>Kode Unik</th>
+                <th>Nomor BG</th>
+                <th>Vendor</th>
+                <th>Bank</th>
+                <th>Currency</th>
+                <th>Nilai BG</th>
+                <th>Tgl BG Expired</th>
+                <th>Tgl Pengembalian</th>
+                <th>Nilai Dikembalikan</th>
+                <th>Keterangan</th>
+              </tr>
+            </thead>
+            <tbody id="returnTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Edit -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title">
+            <i class="bi bi-pencil-square"></i> Edit Data BG
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editForm" class="row g-3">
+            <input type="hidden" id="editIndex" />
+            <div class="col-md-6">
               <label class="form-label">Nomor BG</label>
-              <input type="text" id="f-nomor-bg" class="form-control" required />
+              <input type="text" id="editNomorBG" class="form-control" required />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
               <label class="form-label">Nama Bank</label>
-              <input type="text" id="f-nama-bank" class="form-control" required />
+              <input type="text" id="editNamaBank" class="form-control" required />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+              <label class="form-label">Jenis Bank Garansi</label>
+              <select id="editJenisBankGaransi" class="form-select" required>
+                <option value="Jaminan Uang Muka">Jaminan Uang Muka</option>
+                <option value="Jaminan Pelaksanaan">Jaminan Pelaksanaan</option>
+                <option value="Jaminan Pemeliharaan">Jaminan Pemeliharaan</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
               <label class="form-label">Nama Vendor</label>
-              <input type="text" id="f-nama-vendor" class="form-control" />
+              <input
+                type="text"
+                id="editNamaVendor"
+                class="form-control"
+                required
+              />
             </div>
             <div class="col-md-3">
               <label class="form-label">Currency</label>
-              <select id="f-currency" class="form-select">
+              <select id="editCurrency" class="form-select" required>
                 <option value="IDR">IDR</option>
                 <option value="USD">USD</option>
                 <option value="CNY">CNY</option>
@@ -73,245 +355,977 @@
               </select>
             </div>
             <div class="col-md-3">
+              <label class="form-label">Nomor PO</label>
+              <input type="text" id="editNomorPO" class="form-control" required />
+            </div>
+            <div class="col-md-3">
               <label class="form-label">Nilai BG</label>
-              <input type="number" id="f-nilai-bg" class="form-control" required />
+              <input type="number" id="editNilaiBG" class="form-control" required />
             </div>
             <div class="col-md-3">
-              <label class="form-label">Tgl Terbit</label>
-              <input type="date" id="f-tgl-terbit" class="form-control" required />
+              <label class="form-label">Tanggal Terbit</label>
+              <input
+                type="date"
+                id="editTglTerbit"
+                class="form-control"
+                required
+              />
             </div>
             <div class="col-md-3">
-              <label class="form-label">Tgl Expired</label>
-              <input type="date" id="f-tgl-expired" class="form-control" required />
+              <label class="form-label">Tanggal Expired</label>
+              <input
+                type="date"
+                id="editTglExpired"
+                class="form-control"
+                required
+              />
             </div>
             <div class="col-md-12">
               <label class="form-label">Keterangan</label>
-              <input type="text" id="f-keterangan" class="form-control" />
-            </div>
-            <div class="col-md-12 text-end">
-              <button class="btn btn-success btn-sm" type="submit">Simpan ke Supabase</button>
+              <input type="text" id="editKeterangan" class="form-control" />
             </div>
           </form>
-          <div id="add-bg-message" class="mt-2 small"></div>
         </div>
-      </div>
-
-      <!-- Tabel BG -->
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Data BG (dari Supabase)</span>
-          <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
-        </div>
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered text-center mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>Kode Unik</th>
-                  <th>Nomor BG</th>
-                  <th>Bank</th>
-                  <th>Vendor</th>
-                  <th>Curr</th>
-                  <th>Nilai</th>
-                  <th>Tgl Expired</th>
-                </tr>
-              </thead>
-              <tbody id="bg-table-body">
-              </tbody>
-            </table>
-          </div>
-          <div id="bg-empty" class="text-center text-muted small mt-2" style="display:none;">
-            Belum ada data BG.
-          </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button class="btn btn-primary" id="saveEdit">Simpan</button>
         </div>
       </div>
     </div>
   </div>
 
-<script>
-  // ====== 1. KONFIGURASI SUPABASE ======
-  const { createClient } = supabase;
+  <!-- Bootstrap Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-  // GANTI DUA BARIS DI BAWAH DENGAN PUNYA KAMU
-  const SUPABASE_URL = 'https://bsqcrfkgpkeekzlytacq.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzcWNyZmtncGtlZWt6bHl0YWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MDY4MjksImV4cCI6MjA3OTE4MjgyOX0.7wmtfM-AcW34MqbhgbksCyCQAQD6L272oPTRdqgRiVY';
+  <!-- Script Utama -->
+  <script>
+    // === KONFIGURASI SUPABASE ===
+    const { createClient } = supabase;
 
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // GANTI DUA BARIS INI DENGAN PUNYA KAMU (sekarang sudah isi dari kamu)
+    const SUPABASE_URL = 'https://bsqcrfkgpkeekzlytacq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzcWNyZmtncGtlZWt6bHl0YWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MDY4MjksImV4cCI6MjA3OTE4MjgyOX0.7wmtfM-AcW34MqbhgbksCyCQAQD6L272oPTRdqgRiVY';
 
-  // ====== 2. HELPER SEDERHANA ======
-  function showAuthView() {
-    document.getElementById('auth-view').style.display = 'block';
-    document.getElementById('app-view').style.display = 'none';
-  }
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  function showAppView() {
-    document.getElementById('auth-view').style.display = 'none';
-    document.getElementById('app-view').style.display = 'block';
-  }
-
-  function formatNumber(n) {
-    if (n === null || n === undefined) return '-';
-    return Number(n).toLocaleString('id-ID');
-  }
-
-  function generateKodeUnik(date, index) {
-    const d = new Date(date);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = String(d.getFullYear()).slice(-2);
-    return dd + mm + yy + "-" + String(index).padStart(3, "0");
-  }
-
-  // ====== 3. CEK SESSION DI AWAL ======
-  async function init() {
-    const { data, error } = await sb.auth.getSession();
-    if (data.session && data.session.user) {
-      document.getElementById('user-email').innerText = data.session.user.email;
-      showAppView();
-      await loadBG();
-    } else {
-      showAuthView();
-    }
-  }
-
-  // ====== 4. LOGIN & REGISTER ======
-  document.getElementById('btn-login').addEventListener('click', async () => {
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
-    const msgEl = document.getElementById('auth-message');
-    msgEl.textContent = '';
-
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      msgEl.textContent = 'Login gagal: ' + error.message;
-      return;
-    }
-    document.getElementById('user-email').innerText = data.user.email;
-    showAppView();
-    await loadBG();
-  });
-
-  document.getElementById('btn-register').addEventListener('click', async () => {
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
-    const msgEl = document.getElementById('auth-message');
-    msgEl.textContent = '';
-
-    const { data, error } = await sb.auth.signUp({ email, password });
-    if (error) {
-      msgEl.textContent = 'Register gagal: ' + error.message;
-      return;
-    }
-    msgEl.textContent = 'Register berhasil. Cek email jika perlu verifikasi, lalu login.';
-  });
-
-  document.getElementById('btn-logout').addEventListener('click', async () => {
-    await sb.auth.signOut();
-    showAuthView();
-  });
-
-  // ====== 5. LOAD DATA BG DARI SUPABASE ======
-  async function loadBG() {
-    const tbody = document.getElementById('bg-table-body');
-    const emptyEl = document.getElementById('bg-empty');
-    tbody.innerHTML = '';
-    emptyEl.style.display = 'none';
-
-    const { data, error } = await sb
-      .from('bg_master')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    if (error) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-danger">Gagal load data: '
-        + error.message + '</td></tr>';
-      return;
+    // === HELPER MAPPING DB <-> FRONT-END ===
+    function mapBGFromDB(row) {
+      return {
+        "Kode Unik": row.kode_unik,
+        "Nomor BG": row.nomor_bg,
+        "Nama Bank": row.nama_bank,
+        "Jenis Bank Garansi": row.jenis_bg,
+        "No PO": row.no_po,
+        "Currency": row.currency,
+        "Nilai BG": row.nilai_bg,
+        "Nama Vendor": row.nama_vendor,
+        "Tanggal Terbit BG": row.tgl_terbit,
+        "Tanggal BG Expired": row.tgl_expired,
+        "Keterangan": row.keterangan
+      };
     }
 
-    if (!data || data.length === 0) {
-      emptyEl.style.display = 'block';
-      return;
+    function mapBGToDB(d) {
+      return {
+        kode_unik: d["Kode Unik"],
+        nomor_bg: d["Nomor BG"],
+        nama_bank: d["Nama Bank"],
+        jenis_bg: d["Jenis Bank Garansi"],
+        no_po: d["No PO"],
+        currency: d["Currency"],
+        nilai_bg: Number(d["Nilai BG"] || 0),
+        nama_vendor: d["Nama Vendor"],
+        tgl_terbit: d["Tanggal Terbit BG"],
+        tgl_expired: d["Tanggal BG Expired"],
+        keterangan: d["Keterangan"]
+      };
     }
 
-    data.forEach((row, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${row.kode_unik || '-'}</td>
-        <td>${row.nomor_bg || '-'}</td>
-        <td>${row.nama_bank || '-'}</td>
-        <td>${row.nama_vendor || '-'}</td>
-        <td>${row.currency || '-'}</td>
-        <td>${formatNumber(row.nilai_bg)}</td>
-        <td>${row.tgl_expired || '-'}</td>
-      `;
-      tbody.appendChild(tr);
+    function mapReturnFromDB(row) {
+      return {
+        "Kode Unik": row.kode_unik,
+        "Nomor BG": row.nomor_bg,
+        "Nama Vendor": row.nama_vendor,
+        "Nama Bank": row.nama_bank,
+        "Currency": row.currency,
+        "Nilai BG": row.nilai_bg,
+        "Tanggal BG Expired": row.tanggal_bg_expired || row.tgl_bg_expired || row.tgl_expired,
+        "Tanggal Pengembalian": row.tgl_pengembalian,
+        "Nilai Dikembalikan": row.nilai_dikembalikan,
+        "Keterangan Pengembalian": row.keterangan_pengembalian
+      };
+    }
+
+    function mapReturnToDB(r) {
+      return {
+        kode_unik: r["Kode Unik"],
+        nomor_bg: r["Nomor BG"],
+        nama_vendor: r["Nama Vendor"],
+        nama_bank: r["Nama Bank"],
+        currency: r["Currency"],
+        nilai_bg: Number(r["Nilai BG"] || 0),
+        tanggal_bg_expired: r["Tanggal BG Expired"],
+        tgl_pengembalian: r["Tanggal Pengembalian"],
+        nilai_dikembalikan: r["Nilai Dikembalikan"]
+          ? Number(r["Nilai Dikembalikan"])
+          : null,
+        keterangan_pengembalian: r["Keterangan Pengembalian"] || ""
+      };
+    }
+
+    // === DATA UTAMA (sekarang di-load dari Supabase) ===
+    let bgData = [];
+    let bgReturnData = [];
+
+    const rowsPerPage = 15;
+    let currentPage = 1;
+
+    function generateKodeUnik(date, index) {
+      const d = new Date(date);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = String(d.getFullYear()).slice(-2);
+      return dd + mm + yy + "-" + String(index).padStart(3, "0");
+    }
+
+    // Cek apakah BG sudah dikembalikan (berdasarkan Kode Unik)
+    function isReturnedBG(kodeUnik) {
+      if (!kodeUnik) return false;
+      return bgReturnData.some(r => r["Kode Unik"] === kodeUnik);
+    }
+
+    // Status lama: hanya berdasar tanggal
+    function getStatus(expired) {
+      if (!expired) return "-";
+      const now = new Date();
+      const exp = new Date(expired);
+      if (isNaN(exp.getTime())) return "-";
+      if (exp < now) return "Expired";
+      const diff = (exp - now) / (1000 * 60 * 60 * 24);
+      if (diff <= 30) return "Akan Expired";
+      return "Aktif";
+    }
+
+    // Status tampilan: jika sudah dikembalikan -> "Dikembalikan"
+    function getDisplayStatus(row) {
+      if (isReturnedBG(row["Kode Unik"])) return "Dikembalikan";
+      return getStatus(row["Tanggal BG Expired"]);
+    }
+
+    function updateResume() {
+      let aktif = 0,
+        akan = 0,
+        expired = 0;
+      bgData.forEach((d) => {
+        if (isReturnedBG(d["Kode Unik"])) return; // skip dari resume
+        const st = getStatus(d["Tanggal BG Expired"]);
+        if (st == "Aktif") aktif++;
+        else if (st == "Akan Expired") akan++;
+        else if (st == "Expired") expired++;
+      });
+      document.getElementById("resumeAktif").innerText = aktif;
+      document.getElementById("resumeAkan").innerText = akan;
+      document.getElementById("resumeExpired").innerText = expired;
+    }
+
+    // Fungsi format ribuan dengan titik
+    function numberWithDots(x) {
+      if (x === null || x === undefined || x === "") return "-";
+      const n = Number(x);
+      if (!isFinite(n)) return x.toString();
+      return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    // fungsi konversi serial Excel ke JS date (string YYYY-MM-DD)
+    function excelDateToString(v) {
+      if (!v && v !== 0) return "-";
+      if (typeof v === "number") {
+        const utc_days = Math.floor(v - 25569);
+        const utc_value = utc_days * 86400;
+        const date_info = new Date(utc_value * 1000);
+        return date_info.toISOString().split("T")[0];
+      }
+      if (v instanceof Date) {
+        return v.toISOString().split("T")[0];
+      }
+      return v; // kalau sudah string
+    }
+
+    // Tambah input pencarian teks
+    const searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.placeholder = "Cari semua data...";
+    searchInput.className =
+      "form-control form-control-sm w-auto d-inline ms-2";
+    const filterBar = document.querySelector(".d-flex.justify-content-between");
+    if (filterBar) {
+      filterBar.prepend(searchInput);
+    }
+
+    searchInput.addEventListener("input", () => {
+      currentPage = 1;
+      renderTable();
     });
-  }
 
-  document.getElementById('btn-refresh').addEventListener('click', loadBG);
+    // ------- Fitur Pengembalian BG -------
 
-  // ====== 6. TAMBAH BG KE SUPABASE ======
-  document.getElementById('form-add-bg').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const msgEl = document.getElementById('add-bg-message');
-    msgEl.textContent = '';
-
-    const nomor_bg = document.getElementById('f-nomor-bg').value.trim();
-    const nama_bank = document.getElementById('f-nama-bank').value.trim();
-    const nama_vendor = document.getElementById('f-nama-vendor').value.trim();
-    const currency = document.getElementById('f-currency').value;
-    const nilai_bg = Number(document.getElementById('f-nilai-bg').value);
-    const tgl_terbit = document.getElementById('f-tgl-terbit').value;
-    const tgl_expired = document.getElementById('f-tgl-expired').value;
-    const keterangan = document.getElementById('f-keterangan').value.trim();
-
-    if (!nomor_bg || !nama_bank || !tgl_terbit || !tgl_expired || !nilai_bg) {
-      msgEl.textContent = 'Lengkapi data wajib.';
-      return;
+    // Isi dropdown BG di form pengembalian
+    function refreshReturnBGSelect() {
+      const select = document.getElementById("returnKodeUnik");
+      if (!select) return;
+      const currentValue = select.value;
+      select.innerHTML = '<option value="">-- Pilih BG --</option>';
+      bgData.forEach((d) => {
+        select.innerHTML += `<option value="${d["Kode Unik"]}">
+          ${d["Kode Unik"]} - ${d["Nomor BG"]} - ${d["Nama Vendor"]}
+        </option>`;
+      });
+      // restore choice jika masih ada
+      if (currentValue) {
+        select.value = currentValue;
+      }
     }
 
-    const dTerbit = new Date(tgl_terbit);
-    const dExp = new Date(tgl_expired);
-    if (dExp <= dTerbit) {
-      msgEl.textContent = 'Tanggal Expired harus lebih besar dari Tanggal Terbit.';
-      return;
+    // Render tabel rekap pengembalian
+    function renderReturnTable() {
+      const tbody = document.getElementById("returnTableBody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      let totalCount = 0;
+      let totalAmount = 0;
+
+      bgReturnData.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r["Kode Unik"] || "-"}</td>
+          <td>${r["Nomor BG"] || "-"}</td>
+          <td>${r["Nama Vendor"] || "-"}</td>
+          <td>${r["Nama Bank"] || "-"}</td>
+          <td>${r["Currency"] || "-"}</td>
+          <td>${numberWithDots(r["Nilai BG"] || 0)}</td>
+          <td>${r["Tanggal BG Expired"] || "-"}</td>
+          <td>${r["Tanggal Pengembalian"] || "-"}</td>
+          <td>${numberWithDots(r["Nilai Dikembalikan"] || 0)}</td>
+          <td>${r["Keterangan Pengembalian"] || "-"}</td>
+        `;
+        tbody.appendChild(tr);
+        totalCount++;
+        if (r["Nilai Dikembalikan"]) {
+          totalAmount += Number(r["Nilai Dikembalikan"]);
+        }
+      });
+
+      const countEl = document.getElementById("totalReturnCount");
+      const amountEl = document.getElementById("totalReturnAmount");
+      if (countEl) countEl.innerText = totalCount;
+      if (amountEl) amountEl.innerText = numberWithDots(totalAmount);
+
+      // backup lokal (opsional)
+      localStorage.setItem("bgReturnData", JSON.stringify(bgReturnData));
     }
 
-    // Ambil jumlah BG dulu untuk generator kode unik (sederhana)
-    const { data: countData, error: countError } = await sb
-      .from('bg_master')
-      .select('id', { count: 'exact', head: true });
-
-    const index = countData?.length || 0; // tidak super akurat di concurrent user, tapi cukup untuk demo
-    const kode_unik = generateKodeUnik(new Date(), index + 1);
-
-    const { error } = await sb.from('bg_master').insert([{
-      kode_unik,
-      nomor_bg,
-      nama_bank,
-      jenis_bg: 'Jaminan Uang Muka', // default, nanti bisa dibuat select seperti di app besar
-      no_po: null,
-      currency,
-      nilai_bg,
-      nama_vendor,
-      tgl_terbit,
-      tgl_expired,
-      keterangan
-    }]);
-
-    if (error) {
-      msgEl.textContent = 'Gagal simpan BG: ' + error.message;
-      return;
+    // Prefill form pengembalian dari tombol Aksi
+    function prefillReturnForm(index) {
+      const d = bgData[index];
+      const select = document.getElementById("returnKodeUnik");
+      if (!select || !d) return;
+      select.value = d["Kode Unik"];
+      const returnDate = document.getElementById("returnDate");
+      if (returnDate) returnDate.focus();
     }
 
-    msgEl.textContent = 'BG tersimpan.';
-    e.target.reset();
-    await loadBG();
-  });
+    // Toast notification untuk BG yang akan expired dalam 7 hari (kecuali yang sudah dikembalikan)
+    function notifyExpiredSoon() {
+      const now = new Date();
+      bgData.forEach((d) => {
+        if (isReturnedBG(d["Kode Unik"])) return; // skip BG yang sudah dikembalikan
 
-  // Jalankan init setelah halaman siap
-  window.addEventListener('load', init);
-</script>
+        const exp = new Date(d["Tanggal BG Expired"]);
+        if (isNaN(exp.getTime())) return;
+        const diffDays = (exp - now) / (1000 * 60 * 60 * 24);
+        if (diffDays > 0 && diffDays <= 7) {
+          const toastContainer =
+            document.querySelector(".toast-container") ||
+            (() => {
+              const container = document.createElement("div");
+              container.className = "toast-container";
+              document.body.appendChild(container);
+              return container;
+            })();
+
+          // Hindari duplicate toast untuk BG yang sama
+          if (
+            toastContainer.querySelector(`.toast[data-bg="${d["Kode Unik"]}"]`)
+          )
+            return;
+
+          const toast = document.createElement("div");
+          toast.className =
+            "toast align-items-center text-bg-warning border-0";
+          toast.setAttribute("role", "alert");
+          toast.setAttribute("aria-live", "assertive");
+          toast.setAttribute("aria-atomic", "true");
+          toast.dataset.bg = d["Kode Unik"];
+          toast.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">
+              <i class="bi bi-exclamation-triangle-fill"></i> BG <strong>${
+                d["Nomor BG"]
+              }</strong> akan expired dalam ${Math.ceil(diffDays)} hari!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>`;
+          toastContainer.appendChild(toast);
+          const bsToast = new bootstrap.Toast(toast, { delay: 5000 });
+          bsToast.show();
+          toast.addEventListener("hidden.bs.toast", () => toast.remove());
+        }
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#bgTable tbody");
+      tbody.innerHTML = "";
+
+      const filter = document.getElementById("filterStatus").value;
+      const searchTerm = (searchInput.value || "").toLowerCase();
+
+      const filtered = bgData.filter((d) => {
+        const stDisplay = getDisplayStatus(d);
+
+        let filterPass = true;
+        if (filter == "aktif") filterPass = stDisplay == "Aktif";
+        else if (filter == "akan") filterPass = stDisplay == "Akan Expired";
+        else if (filter == "expired") filterPass = stDisplay == "Expired";
+        // status "Dikembalikan" hanya muncul di "Semua Status"
+
+        // Search di semua kolom
+        const searchIn = [
+          d["Kode Unik"],
+          d["Nomor BG"],
+          d["Nama Bank"],
+          d["Jenis Bank Garansi"],
+          d["No PO"],
+          d["Currency"],
+          d["Nilai BG"],
+          d["Nama Vendor"],
+          d["Tanggal Terbit BG"],
+          d["Tanggal BG Expired"],
+          d["Keterangan"],
+          stDisplay,
+        ].map((v) => (v || "").toString().toLowerCase());
+
+        let searchPass = searchIn.some((v) => v.includes(searchTerm));
+        return filterPass && searchPass;
+      });
+
+      const totalPages = Math.ceil(filtered.length / rowsPerPage) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      const pageData = filtered.slice(start, end);
+
+      pageData.forEach((d) => {
+        const stDisplay = getDisplayStatus(d);
+
+        let badgeClass = "secondary";
+        if (stDisplay === "Aktif") badgeClass = "success";
+        else if (stDisplay === "Akan Expired") badgeClass = "warning";
+        else if (stDisplay === "Expired") badgeClass = "danger";
+        else if (stDisplay === "Dikembalikan") badgeClass = "secondary";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${d["Kode Unik"] || "-"}</td>
+          <td>${d["Nomor BG"] || "-"}</td>
+          <td>${d["Nama Bank"] || "-"}</td>
+          <td>${d["Jenis Bank Garansi"] || "-"}</td>
+          <td>${d["No PO"] || "-"}</td>
+          <td>${d["Currency"] || "-"}</td>
+          <td>${numberWithDots(d["Nilai BG"])}</td>
+          <td>${d["Nama Vendor"] || "-"}</td>
+          <td>${d["Tanggal Terbit BG"] || "-"}</td>
+          <td>${d["Tanggal BG Expired"] || "-"}</td>
+          <td>${d["Keterangan"] || "-"}</td>
+          <td><span class="badge bg-${badgeClass}">${stDisplay}</span></td>
+          <td>
+            <button class="btn btn-sm btn-info" onclick="openEdit(${bgData.indexOf(
+              d
+            )})"><i class="bi bi-pencil-square"></i></button>
+            <button class="btn btn-sm btn-success" onclick="prefillReturnForm(${bgData.indexOf(
+              d
+            )})"><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="deleteData(${bgData.indexOf(
+              d
+            )})"><i class="bi bi-trash"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (pageData.length === 0) {
+        tbody.innerHTML =
+          '<tr><td colspan="13" class="text-center">Tidak ada data tersedia</td></tr>';
+      }
+
+      // Pagination
+      const pag = document.getElementById("pagination");
+      pag.innerHTML = "";
+      for (let i = 1; i <= totalPages; i++) {
+        pag.innerHTML += `<li class="page-item ${
+          i == currentPage ? "active" : ""
+        }">
+          <a class="page-link" href="#" onclick="gotoPage(${i}); return false;">${i}</a>
+        </li>`;
+      }
+
+      updateResume();
+      // backup lokal (opsional)
+      localStorage.setItem("bgData", JSON.stringify(bgData));
+      refreshReturnBGSelect();
+    }
+
+    function gotoPage(p) {
+      currentPage = p;
+      renderTable();
+    }
+
+    // === LOAD DATA DARI SUPABASE ===
+    async function loadBGFromSupabase() {
+      const { data, error } = await sb
+        .from("bg_master")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Gagal load BG dari Supabase:", error);
+        alert("Gagal memuat data BG dari server.");
+        return;
+      }
+      bgData = (data || []).map(mapBGFromDB);
+    }
+
+    async function loadReturnFromSupabase() {
+      const { data, error } = await sb
+        .from("bg_return")
+        .select("*")
+        .order("tgl_pengembalian", { ascending: true });
+
+      if (error) {
+        console.error("Gagal load pengembalian dari Supabase:", error);
+        alert("Gagal memuat data pengembalian dari server.");
+        return;
+      }
+      bgReturnData = (data || []).map(mapReturnFromDB);
+    }
+
+    // Submit form utama BG (dengan cek duplikasi + validasi tanggal + simpan ke Supabase)
+    document.getElementById("bgForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const nomorBG = document.getElementById("nomorBG").value.trim();
+      // Cegah duplikasi nomor BG
+      if (bgData.some((d) => d["Nomor BG"] === nomorBG)) {
+        alert("Nomor BG sudah ada, duplikasi dicegah!");
+        return;
+      }
+
+      const tglTerbitVal = document.getElementById("tglTerbit").value;
+      const tglExpiredVal = document.getElementById("tglExpired").value;
+      const tglTerbit = new Date(tglTerbitVal);
+      const tglExpired = new Date(tglExpiredVal);
+      if (tglExpired <= tglTerbit) {
+        alert("Tanggal Expired harus lebih besar dari Tanggal Terbit");
+        return;
+      }
+
+      const data = {
+        "Kode Unik": generateKodeUnik(new Date(), bgData.length + 1),
+        "Nomor BG": nomorBG || "-",
+        "Nama Bank": document.getElementById("namaBank").value || "-",
+        "Jenis Bank Garansi":
+          document.getElementById("jenisBankGaransi").value ||
+          "Jaminan Uang Muka",
+        "No PO": document.getElementById("nomorPO").value || "-",
+        "Currency": document.getElementById("currency").value || "-",
+        "Nilai BG": document.getElementById("nilaiBG").value || "-",
+        "Nama Vendor": document.getElementById("namaVendor").value || "-",
+        "Tanggal Terbit BG": tglTerbitVal || "-",
+        "Tanggal BG Expired": tglExpiredVal || "-",
+        "Keterangan": document.getElementById("keterangan").value || "-",
+      };
+
+      // Simpan ke Supabase
+      const payload = mapBGToDB(data);
+      const { data: inserted, error } = await sb
+        .from("bg_master")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Gagal insert BG ke Supabase:", error);
+        alert("Gagal menyimpan data ke server.");
+        return;
+      }
+
+      // Pakai data balik dari DB (untuk jaga konsistensi)
+      const mapped = mapBGFromDB(inserted);
+      bgData.push(mapped);
+
+      e.target.reset();
+      renderTable();
+    });
+
+    // Tombol reset lama: hapus semua data (versi cepat, HANYA lokal)
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (confirm("Hapus semua data di tampilan (tanpa menghapus di server)?")) {
+        bgData = [];
+        bgReturnData = [];
+        renderTable();
+        renderReturnTable();
+      }
+    });
+
+    function openEdit(index) {
+      document.getElementById("editIndex").value = index;
+      const d = bgData[index];
+      document.getElementById("editNomorBG").value = d["Nomor BG"];
+      document.getElementById("editNamaBank").value = d["Nama Bank"];
+      document.getElementById("editJenisBankGaransi").value =
+        d["Jenis Bank Garansi"] || "Jaminan Uang Muka";
+      document.getElementById("editNomorPO").value = d["No PO"] || "";
+      document.getElementById("editCurrency").value = d["Currency"] || "IDR";
+      document.getElementById("editNilaiBG").value = d["Nilai BG"];
+      document.getElementById("editNamaVendor").value =
+        d["Nama Vendor"] || "";
+      document.getElementById("editTglTerbit").value =
+        d["Tanggal Terbit BG"];
+      document.getElementById("editTglExpired").value =
+        d["Tanggal BG Expired"];
+      document.getElementById("editKeterangan").value =
+        d["Keterangan"] || "";
+      new bootstrap.Modal(document.getElementById("editModal")).show();
+    }
+
+    document.getElementById("saveEdit").addEventListener("click", async () => {
+      const tglTerbitEditVal = document.getElementById("editTglTerbit").value;
+      const tglExpiredEditVal = document.getElementById("editTglExpired").value;
+      const tglTerbitEdit = new Date(tglTerbitEditVal);
+      const tglExpiredEdit = new Date(tglExpiredEditVal);
+      if (tglExpiredEdit <= tglTerbitEdit) {
+        alert("Tanggal Expired harus lebih besar dari Tanggal Terbit");
+        return;
+      }
+      const i = document.getElementById("editIndex").value;
+      const kodeUnik = bgData[i]["Kode Unik"];
+
+      const updated = {
+        "Kode Unik": kodeUnik,
+        "Nomor BG": document.getElementById("editNomorBG").value || "-",
+        "Nama Bank": document.getElementById("editNamaBank").value || "-",
+        "Jenis Bank Garansi":
+          document.getElementById("editJenisBankGaransi").value ||
+          "Jaminan Uang Muka",
+        "No PO": document.getElementById("editNomorPO").value || "-",
+        "Currency": document.getElementById("editCurrency").value || "-",
+        "Nilai BG": document.getElementById("editNilaiBG").value || "-",
+        "Nama Vendor": document.getElementById("editNamaVendor").value || "-",
+        "Tanggal Terbit BG": tglTerbitEditVal || "-",
+        "Tanggal BG Expired": tglExpiredEditVal || "-",
+        "Keterangan": document.getElementById("editKeterangan").value || "-",
+      };
+
+      const payload = mapBGToDB(updated);
+      const { error } = await sb
+        .from("bg_master")
+        .update(payload)
+        .eq("kode_unik", kodeUnik);
+
+      if (error) {
+        console.error("Gagal update BG di Supabase:", error);
+        alert("Gagal mengubah data di server.");
+        return;
+      }
+
+      bgData[i] = updated;
+      renderTable();
+      bootstrap.Modal.getInstance(
+        document.getElementById("editModal")
+      ).hide();
+    });
+
+    // Fungsi hapus data dengan konfirmasi (+ hapus di Supabase)
+    async function deleteData(index) {
+      if (!confirm("Apakah Anda yakin ingin menghapus data ini (server & tampilan)?")) {
+        return;
+      }
+      const kode = bgData[index]["Kode Unik"];
+
+      // Hapus di Supabase: bg_return dulu, lalu bg_master
+      const { error: errRet } = await sb
+        .from("bg_return")
+        .delete()
+        .eq("kode_unik", kode);
+      if (errRet) {
+        console.error("Gagal hapus retur di Supabase:", errRet);
+      }
+
+      const { error: errMas } = await sb
+        .from("bg_master")
+        .delete()
+        .eq("kode_unik", kode);
+      if (errMas) {
+        console.error("Gagal hapus BG di Supabase:", errMas);
+        alert("Gagal menghapus data BG di server.");
+        return;
+      }
+
+      // Hapus lokal
+      bgData.splice(index, 1);
+      bgReturnData = bgReturnData.filter((r) => r["Kode Unik"] !== kode);
+      renderTable();
+      renderReturnTable();
+    }
+
+    // Import Excel (dengan anti-duplikasi + kirim ke Supabase)
+    function importUniqueLocal(dataArr) {
+      const newRows = [];
+      dataArr.forEach((d) => {
+        if (!bgData.some((x) => x["Nomor BG"] === d["Nomor BG"])) {
+          bgData.push(d);
+          newRows.push(d);
+        }
+      });
+      return newRows;
+    }
+
+    document.getElementById("execImport").addEventListener("click", async () => {
+      const file = document.getElementById("importExcel").files[0];
+      if (!file) return alert("Pilih file Excel dulu!");
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const wb = XLSX.read(e.target.result, { type: "binary" });
+
+        // --- Sheet 1: DataBG ---
+        const wsBG = wb.Sheets["DataBG"] || wb.Sheets[wb.SheetNames[0]];
+        let newBGForDB = [];
+        if (wsBG) {
+          const dataBG = XLSX.utils.sheet_to_json(wsBG);
+          const imported = [];
+          dataBG.forEach((d) => {
+            imported.push({
+              "Kode Unik": d["Kode Unik"]
+                ? d["Kode Unik"]
+                : generateKodeUnik(
+                    new Date(),
+                    bgData.length + imported.length + 1
+                  ),
+              "Nomor BG": d["Nomor BG"] || "-",
+              "Nama Bank": d["Nama Bank"] || "-",
+              "Jenis Bank Garansi":
+                d["Jenis Bank Garansi"] || "Jaminan Uang Muka",
+              "No PO": d["No PO"] || "-",
+              "Currency": d["Currency"] || "-",
+              "Nilai BG": d["Nilai BG"] || "-",
+              "Nama Vendor": d["Nama Vendor"] || "-",
+              "Tanggal Terbit BG": excelDateToString(
+                d["Tanggal Terbit BG"]
+              ),
+              "Tanggal BG Expired": excelDateToString(
+                d["Tanggal BG Expired"]
+              ),
+              "Keterangan": d["Keterangan"] || "-",
+            });
+          });
+          const newLocal = importUniqueLocal(imported);
+          newBGForDB = newLocal.map(mapBGToDB);
+        }
+
+        // --- Sheet 2 (opsional): RekapPengembalian ---
+        const wsRetur = wb.Sheets["RekapPengembalian"];
+        let upsertReturnDB = [];
+        if (wsRetur) {
+          const dataRetur = XLSX.utils.sheet_to_json(wsRetur);
+          dataRetur.forEach((r) => {
+            if (!r["Kode Unik"]) return; // skip kalau datanya aneh
+
+            // cari BG dasar-nya untuk sync nilai terbaru kalau ada
+            const bg = bgData.find(
+              (d) => d["Kode Unik"] === r["Kode Unik"]
+            );
+
+            const payloadLocal = {
+              "Kode Unik": r["Kode Unik"],
+              "Nomor BG": r["Nomor BG"] || (bg ? bg["Nomor BG"] : "-"),
+              "Nama Vendor":
+                r["Nama Vendor"] || (bg ? bg["Nama Vendor"] : "-"),
+              "Nama Bank":
+                r["Nama Bank"] || (bg ? bg["Nama Bank"] : "-"),
+              "Currency": r["Currency"] || (bg ? bg["Currency"] : "-"),
+              "Nilai BG": r["Nilai BG"] || (bg ? bg["Nilai BG"] : "-"),
+              "Tanggal BG Expired":
+                r["Tanggal BG Expired"] ||
+                (bg ? bg["Tanggal BG Expired"] : "-"),
+              "Tanggal Pengembalian": r["Tanggal Pengembalian"] || "",
+              "Nilai Dikembalikan": r["Nilai Dikembalikan"] || "",
+              "Keterangan Pengembalian":
+                r["Keterangan Pengembalian"] || "",
+            };
+
+            const existing = bgReturnData.find(
+              (x) => x["Kode Unik"] === payloadLocal["Kode Unik"]
+            );
+            if (existing) {
+              Object.assign(existing, payloadLocal);
+            } else {
+              bgReturnData.push(payloadLocal);
+            }
+
+            upsertReturnDB.push(mapReturnToDB(payloadLocal));
+          });
+          renderReturnTable(); // refresh tampilan rekap
+        }
+
+        // Kirim ke Supabase
+        if (newBGForDB.length > 0) {
+          const { error: errBG } = await sb
+            .from("bg_master")
+            .insert(newBGForDB);
+          if (errBG) {
+            console.error("Gagal import BG ke Supabase:", errBG);
+            alert("Sebagian data BG gagal dikirim ke server.");
+          }
+        }
+
+        if (upsertReturnDB.length > 0) {
+          const { error: errRet } = await sb
+            .from("bg_return")
+            .upsert(upsertReturnDB);
+          if (errRet) {
+            console.error("Gagal import retur ke Supabase:", errRet);
+            alert("Sebagian data pengembalian gagal dikirim ke server.");
+          }
+        }
+
+        renderTable();
+        alert("Import selesai!");
+      };
+      reader.readAsBinaryString(file);
+    });
+
+    // Export Excel
+    document.getElementById("exportExcel").addEventListener("click", () => {
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Data BG utama
+      const wsBG = XLSX.utils.json_to_sheet(bgData || []);
+      XLSX.utils.book_append_sheet(wb, wsBG, "DataBG");
+
+      // Sheet 2: Rekap Pengembalian BG
+      const wsRetur = XLSX.utils.json_to_sheet(bgReturnData || []);
+      XLSX.utils.book_append_sheet(wb, wsRetur, "RekapPengembalian");
+
+      // Nama file tetap sama
+      XLSX.writeFile(wb, "export_bg.xlsx");
+    });
+
+    document
+      .getElementById("filterStatus")
+      .addEventListener("change", () => renderTable());
+
+    // Backup data JSON button (masih pakai bgData yang sudah sinkron server)
+    const backupBtn = document.createElement("button");
+    backupBtn.className = "btn btn-sm btn-outline-secondary ms-2";
+    backupBtn.innerHTML = '<i class="bi bi-save"></i> Backup Data JSON';
+    const rightBox = document.querySelector(
+      ".d-flex.justify-content-between > div:last-child"
+    );
+    if (rightBox) {
+      rightBox.prepend(backupBtn);
+    }
+    backupBtn.addEventListener("click", () => {
+      const dataStr = JSON.stringify(
+        { bgData, bgReturnData },
+        null,
+        2
+      );
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "backup_bg_data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Reset Form
+    document.getElementById("resetFormBtn").addEventListener("click", () => {
+      document.getElementById("bgForm").reset();
+    });
+
+    // Hapus Semua Data (server + lokal)
+    document.getElementById("clearAllBtn").addEventListener("click", async () => {
+      if (confirm("Hapus semua data permanen (BG & pengembalian) di server dan tampilan?")) {
+        // Hapus di Supabase
+        const { error: errRet } = await sb
+          .from("bg_return")
+          .delete()
+          .neq("kode_unik", "");
+        if (errRet) {
+          console.error("Gagal hapus semua retur:", errRet);
+        }
+
+        const { error: errMas } = await sb
+          .from("bg_master")
+          .delete()
+          .neq("kode_unik", "");
+        if (errMas) {
+          console.error("Gagal hapus semua BG:", errMas);
+          alert("Sebagian data BG gagal dihapus dari server.");
+        }
+
+        // Hapus lokal & localStorage
+        bgData = [];
+        bgReturnData = [];
+        localStorage.removeItem("bgData");
+        localStorage.removeItem("bgReturnData");
+        renderTable();
+        renderReturnTable();
+      }
+    });
+
+    // Submit form pengembalian (simpan juga ke Supabase)
+    const returnForm = document.getElementById("returnForm");
+    if (returnForm) {
+      returnForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const kode = document.getElementById("returnKodeUnik").value;
+        const tgl = document.getElementById("returnDate").value;
+        const amount = document.getElementById("returnAmount").value;
+        const note = document.getElementById("returnNote").value;
+
+        if (!kode || !tgl) {
+          alert("Pilih BG dan isi tanggal pengembalian");
+          return;
+        }
+
+        const bg = bgData.find((d) => d["Kode Unik"] === kode);
+        if (!bg) {
+          alert("Data BG tidak ditemukan");
+          return;
+        }
+
+        const existing = bgReturnData.find(
+          (r) => r["Kode Unik"] === kode
+        );
+        const payloadLocal = {
+          "Kode Unik": bg["Kode Unik"],
+          "Nomor BG": bg["Nomor BG"],
+          "Nama Vendor": bg["Nama Vendor"],
+          "Nama Bank": bg["Nama Bank"],
+          "Currency": bg["Currency"],
+          "Nilai BG": bg["Nilai BG"],
+          "Tanggal BG Expired": bg["Tanggal BG Expired"],
+          "Tanggal Pengembalian": tgl,
+          "Nilai Dikembalikan": amount || "",
+          "Keterangan Pengembalian": note || "",
+        };
+
+        if (existing) {
+          Object.assign(existing, payloadLocal);
+        } else {
+          bgReturnData.push(payloadLocal);
+        }
+
+        // Simpan/Update ke Supabase
+        const payloadDB = mapReturnToDB(payloadLocal);
+        const { error } = await sb
+          .from("bg_return")
+          .upsert(payloadDB);
+
+        if (error) {
+          console.error("Gagal simpan pengembalian ke Supabase:", error);
+          alert("Gagal menyimpan data pengembalian ke server.");
+        }
+
+        renderReturnTable();
+        refreshReturnBGSelect();
+        e.target.reset();
+      });
+    }
+
+    // Sorting table columns on header click (ASC/DESC toggle, kecuali kolom Aksi)
+    let sortDir = {}; // true = ASC, false = DESC
+    const headerCells = document.querySelectorAll("#bgTable thead th");
+    headerCells.forEach((th, idx) => {
+      // index 12 = kolom Aksi
+      if (idx === 12) return;
+      th.style.cursor = "pointer";
+      th.addEventListener("click", () => {
+        const keyMap = [
+          "Kode Unik",
+          "Nomor BG",
+          "Nama Bank",
+          "Jenis Bank Garansi",
+          "No PO",
+          "Currency",
+          "Nilai BG",
+          "Nama Vendor",
+          "Tanggal Terbit BG",
+          "Tanggal BG Expired",
+          "Keterangan",
+          "Status BG",
+          "Aksi",
+        ];
+        const key = keyMap[idx];
+        if (!key) return;
+
+        sortDir[idx] = !sortDir[idx]; // toggle
+        const asc = sortDir[idx];
+
+        bgData.sort((a, b) => {
+          let v1, v2;
+
+          if (key === "Status BG") {
+            v1 = getDisplayStatus(a);
+            v2 = getDisplayStatus(b);
+          } else if (
+            key === "Tanggal Terbit BG" ||
+            key === "Tanggal BG Expired"
+          ) {
+            v1 = new Date(a[key] || "");
+            v2 = new Date(b[key] || "");
+          } else if (key === "Nilai BG") {
+            v1 = Number(a[key] || 0);
+            v2 = Number(b[key] || 0);
+          } else {
+            v1 = (a[key] || "").toString().toLowerCase();
+            v2 = (b[key] || "").toString().toLowerCase();
+          }
+
+          if (v1 < v2) return asc ? -1 : 1;
+          if (v1 > v2) return asc ? 1 : -1;
+          return 0;
+        });
+
+        currentPage = 1;
+        renderTable();
+      });
+    });
+
+    // INITIAL LOAD: ambil data dari Supabase lalu render
+    async function initialLoad() {
+      await loadBGFromSupabase();
+      await loadReturnFromSupabase();
+      renderTable();
+      renderReturnTable();
+      notifyExpiredSoon();
+      setInterval(notifyExpiredSoon, 3600000); // cek tiap jam
+    }
+
+    initialLoad();
+  </script>
 </body>
 </html>
