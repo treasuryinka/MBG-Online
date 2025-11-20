@@ -425,6 +425,13 @@
   }
 
   function mapBGToDB(d) {
+    // Sanitasi Nilai BG: buang titik/koma lalu jadikan number
+    let rawNilai = d["Nilai BG"];
+    if (typeof rawNilai === "string") {
+      rawNilai = rawNilai.replace(/\./g, "").replace(/,/g, "");
+    }
+    const nilaiNum = Number(rawNilai);
+
     return {
       kode_unik: d["Kode Unik"],
       nomor_bg: d["Nomor BG"],
@@ -432,12 +439,7 @@
       jenis_bg: d["Jenis Bank Garansi"],
       no_po: d["No PO"],
       currency: d["Currency"],
-      let rawNilai = d["Nilai BG"];
-if (typeof rawNilai === "string") {
-  rawNilai = rawNilai.replace(/\./g, "").replace(/,/g, "");
-}
-const nilaiNum = Number(rawNilai);
-nilai_bg: Number.isFinite(nilaiNum) ? nilaiNum : 0,
+      nilai_bg: Number.isFinite(nilaiNum) ? nilaiNum : 0,
       nama_vendor: d["Nama Vendor"],
       tgl_terbit: d["Tanggal Terbit BG"],
       tgl_expired: d["Tanggal BG Expired"],
@@ -1019,6 +1021,13 @@ nilai_bg: Number.isFinite(nilaiNum) ? nilaiNum : 0,
         const dataBG = XLSX.utils.sheet_to_json(wsBG);
         const imported = [];
         dataBG.forEach((d) => {
+          // sanitasi Nilai BG dari Excel
+          let nilaiRaw = d["Nilai BG"];
+          if (typeof nilaiRaw === "string") {
+            nilaiRaw = nilaiRaw.replace(/\./g, "").replace(/,/g, "");
+          }
+          const nilaiNum = Number(nilaiRaw);
+
           imported.push({
             "Kode Unik": d["Kode Unik"]
               ? d["Kode Unik"]
@@ -1032,12 +1041,7 @@ nilai_bg: Number.isFinite(nilaiNum) ? nilaiNum : 0,
               d["Jenis Bank Garansi"] || "Jaminan Uang Muka",
             "No PO": d["No PO"] || "-",
             "Currency": d["Currency"] || "-",
-            let nilaiRaw = d["Nilai BG"];
-if (typeof nilaiRaw === "string") {
-  nilaiRaw = nilaiRaw.replace(/\./g, "").replace(/,/g, "");
-}
-const nilaiNum = Number(nilaiRaw);
-"Nilai BG": Number.isFinite(nilaiNum) ? nilaiNum : 0,
+            "Nilai BG": Number.isFinite(nilaiNum) ? nilaiNum : 0,
             "Nama Vendor": d["Nama Vendor"] || "-",
             "Tanggal Terbit BG": excelDateToString(
               d["Tanggal Terbit BG"]
@@ -1100,14 +1104,14 @@ const nilaiNum = Number(nilaiRaw);
       // Kirim ke Supabase
       if (newBGForDB.length > 0) {
         const { error: errBG } = await sb
-    .from("bg_master")
-    .insert(newBGForDB);
+          .from("bg_master")
+          .insert(newBGForDB);
 
-  if (errBG) {
-    console.error("Gagal import BG ke Supabase:", errBG);
-    alert("Gagal import BG ke server:\n" + (errBG.message || JSON.stringify(errBG)));
-  }
-}
+        if (errBG) {
+          console.error("Gagal import BG ke Supabase:", errBG);
+          alert("Gagal import BG ke server:\n" + (errBG.message || JSON.stringify(errBG)));
+        }
+      }
       if (upsertReturnDB.length > 0) {
         const { error: errRet } = await sb
           .from("bg_return")
@@ -1338,4 +1342,5 @@ const nilaiNum = Number(nilaiRaw);
 </script>
 </body>
 </html>
+
 
