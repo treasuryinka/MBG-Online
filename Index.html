@@ -407,7 +407,31 @@
 
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // === HELPER MAPPING DB <-> FRONT-END ===
+    // === HELPER MAPPING & SANITASI DATA ===
+
+    // sanitasi angka sebelum dikirim ke Supabase
+    function parseNumberField(value) {
+      if (value === null || value === undefined) return null;
+      if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+      }
+      let s = String(value).trim();
+      if (!s || s === "-" || s.toLowerCase() === "na") return null;
+      // hilangkan titik ribuan, koma jadi desimal
+      s = s.replace(/\./g, "").replace(/,/g, ".");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    // sanitasi tanggal (kalau "-", kosong → null)
+    function parseDateField(value) {
+      if (!value) return null;
+      const s = String(value).trim();
+      if (!s || s === "-" || s.toLowerCase() === "na") return null;
+      // diasumsikan format sudah YYYY-MM-DD
+      return s;
+    }
+
     function mapBGFromDB(row) {
       return {
         "Kode Unik": row.kode_unik,
@@ -425,32 +449,18 @@
     }
 
     function mapBGToDB(d) {
-      // Bersihkan angka: hilangkan pemisah ribuan & jadikan titik sebagai desimal
-      let rawNilai = d["Nilai BG"];
-      if (typeof rawNilai === "string") {
-        rawNilai = rawNilai.replace(/\./g, "").replace(/,/g, ".");
-      }
-      const nilaiNum = Number(rawNilai);
-      const nilaiClean = Number.isFinite(nilaiNum) ? nilaiNum : 0;
-
-      // Tanggal: kirim null kalau kosong atau "-"
-      const tTerbit = d["Tanggal Terbit BG"];
-      const tExpired = d["Tanggal BG Expired"];
-      const tTerbitDB = tTerbit && tTerbit !== "-" ? tTerbit : null;
-      const tExpiredDB = tExpired && tExpired !== "-" ? tExpired : null;
-
       return {
         kode_unik: d["Kode Unik"],
-        nomor_bg: d["Nomor BG"],
-        nama_bank: d["Nama Bank"],
-        jenis_bg: d["Jenis Bank Garansi"],
-        no_po: d["No PO"],
-        currency: d["Currency"],
-        nilai_bg: nilaiClean,
-        nama_vendor: d["Nama Vendor"],
-        tgl_terbit: tTerbitDB,
-        tgl_expired: tExpiredDB,
-        keterangan: d["Keterangan"]
+        nomor_bg: d["Nomor BG"] || null,
+        nama_bank: d["Nama Bank"] || null,
+        jenis_bg: d["Jenis Bank Garansi"] || null,
+        no_po: d["No PO"] || null,
+        currency: d["Currency"] || null,
+        nilai_bg: parseNumberField(d["Nilai BG"]),
+        nama_vendor: d["Nama Vendor"] || null,
+        tgl_terbit: parseDateField(d["Tanggal Terbit BG"]),
+        tgl_expired: parseDateField(d["Tanggal BG Expired"]),
+        keterangan: d["Keterangan"] || null
       };
     }
 
@@ -470,40 +480,21 @@
     }
 
     function mapReturnToDB(r) {
-      // Bersihkan Nilai BG
-      let rawNilaiBG = r["Nilai BG"];
-      if (typeof rawNilaiBG === "string") {
-        rawNilaiBG = rawNilaiBG.replace(/\./g, "").replace(/,/g, ".");
-      }
-      const nilaiBG = Number(rawNilaiBG);
-      const nilaiBGclean = Number.isFinite(nilaiBG) ? nilaiBG : 0;
-
-      // Bersihkan Nilai Dikembalikan
-      let rawRet = r["Nilai Dikembalikan"];
-      if (typeof rawRet === "string") {
-        rawRet = rawRet.replace(/\./g, "").replace(/,/g, ".");
-      }
-      const nilaiRet = Number(rawRet);
-      const nilaiRetClean = Number.isFinite(nilaiRet) ? nilaiRet : null;
-
-      const tExp = r["Tanggal BG Expired"];
-      const tRet = r["Tanggal Pengembalian"];
-
       return {
         kode_unik: r["Kode Unik"],
-        nomor_bg: r["Nomor BG"],
-        nama_vendor: r["Nama Vendor"],
-        nama_bank: r["Nama Bank"],
-        currency: r["Currency"],
-        nilai_bg: nilaiBGclean,
-        tanggal_bg_expired: tExp && tExp !== "-" ? tExp : null,
-        tgl_pengembalian: tRet && tRet !== "-" ? tRet : null,
-        nilai_dikembalikan: nilaiRetClean,
+        nomor_bg: r["Nomor BG"] || null,
+        nama_vendor: r["Nama Vendor"] || null,
+        nama_bank: r["Nama Bank"] || null,
+        currency: r["Currency"] || null,
+        nilai_bg: parseNumberField(r["Nilai BG"]),
+        tanggal_bg_expired: parseDateField(r["Tanggal BG Expired"]),
+        tgl_pengembalian: parseDateField(r["Tanggal Pengembalian"]),
+        nilai_dikembalikan: parseNumberField(r["Nilai Dikembalikan"]),
         keterangan_pengembalian: r["Keterangan Pengembalian"] || ""
       };
     }
 
-    // === DATA UTAMA (di-load dari Supabase) ===
+    // === DATA UTAMA (sekarang di-load dari Supabase) ===
     let bgData = [];
     let bgReturnData = [];
 
@@ -686,7 +677,7 @@
 
           // Hindari duplicate toast untuk BG yang sama
           if (
-            toastContainer.querySelector(\`.toast[data-bg="\${d["Kode Unik"]}"]\`)
+            toastContainer.querySelector(`.toast[data-bg="${d["Kode Unik"]}"]`)
           )
             return;
 
@@ -697,13 +688,15 @@
           toast.setAttribute("aria-live", "assertive");
           toast.setAttribute("aria-atomic", "true");
           toast.dataset.bg = d["Kode Unik"];
-          toast.innerHTML = \`
+          toast.innerHTML = `
           <div class="d-flex">
             <div class="toast-body">
-              <i class="bi bi-exclamation-triangle-fill"></i> BG <strong>\${d["Nomor BG"]}</strong> akan expired dalam \${Math.ceil(diffDays)} hari!
+              <i class="bi bi-exclamation-triangle-fill"></i> BG <strong>${
+                d["Nomor BG"]
+              }</strong> akan expired dalam ${Math.ceil(diffDays)} hari!
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-          </div>\`;
+          </div>`;
           toastContainer.appendChild(toast);
           const bsToast = new bootstrap.Toast(toast, { delay: 5000 });
           bsToast.show();
@@ -778,9 +771,15 @@
           <td>${d["Keterangan"] || "-"}</td>
           <td><span class="badge bg-${badgeClass}">${stDisplay}</span></td>
           <td>
-            <button class="btn btn-sm btn-info" onclick="openEdit(${bgData.indexOf(d)})"><i class="bi bi-pencil-square"></i></button>
-            <button class="btn btn-sm btn-success" onclick="prefillReturnForm(${bgData.indexOf(d)})"><i class="bi bi-arrow-counterclockwise"></i></button>
-            <button class="btn btn-sm btn-danger" onclick="deleteData(${bgData.indexOf(d)})"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-info" onclick="openEdit(${bgData.indexOf(
+              d
+            )})"><i class="bi bi-pencil-square"></i></button>
+            <button class="btn btn-sm btn-success" onclick="prefillReturnForm(${bgData.indexOf(
+              d
+            )})"><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="deleteData(${bgData.indexOf(
+              d
+            )})"><i class="bi bi-trash"></i></button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -795,7 +794,9 @@
       const pag = document.getElementById("pagination");
       pag.innerHTML = "";
       for (let i = 1; i <= totalPages; i++) {
-        pag.innerHTML += `<li class="page-item ${i == currentPage ? "active" : ""}">
+        pag.innerHTML += `<li class="page-item ${
+          i == currentPage ? "active" : ""
+        }">
           <a class="page-link" href="#" onclick="gotoPage(${i}); return false;">${i}</a>
         </li>`;
       }
@@ -835,12 +836,12 @@
       if (error) {
         console.error("Gagal load pengembalian dari Supabase:", error);
         alert("Gagal memuat data pengembalian dari server.");
-      return;
+        return;
       }
       bgReturnData = (data || []).map(mapReturnFromDB);
     }
 
-    // Submit form utama BG
+    // Submit form utama BG (dengan cek duplikasi + validasi tanggal + simpan ke Supabase)
     document.getElementById("bgForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -869,13 +870,14 @@
           "Jaminan Uang Muka",
         "No PO": document.getElementById("nomorPO").value || "-",
         "Currency": document.getElementById("currency").value || "-",
-        "Nilai BG": document.getElementById("nilaiBG").value || "0",
+        "Nilai BG": document.getElementById("nilaiBG").value || "-",
         "Nama Vendor": document.getElementById("namaVendor").value || "-",
         "Tanggal Terbit BG": tglTerbitVal || "-",
         "Tanggal BG Expired": tglExpiredVal || "-",
         "Keterangan": document.getElementById("keterangan").value || "-",
       };
 
+      // Simpan ke Supabase
       const payload = mapBGToDB(data);
       const { data: inserted, error } = await sb
         .from("bg_master")
@@ -885,10 +887,11 @@
 
       if (error) {
         console.error("Gagal insert BG ke Supabase:", error);
-        alert("Gagal menyimpan data ke server:\n" + (error.message || JSON.stringify(error)));
+        alert("Gagal menyimpan data ke server.");
         return;
       }
 
+      // Pakai data balik dari DB (untuk jaga konsistensi)
       const mapped = mapBGFromDB(inserted);
       bgData.push(mapped);
 
@@ -896,7 +899,7 @@
       renderTable();
     });
 
-    // Tombol reset lama: hapus semua data (HANYA lokal)
+    // Tombol reset lama: hapus semua data (versi cepat, HANYA lokal)
     document.getElementById("resetBtn").addEventListener("click", () => {
       if (confirm("Hapus semua data di tampilan (tanpa menghapus di server)?")) {
         bgData = [];
@@ -948,7 +951,7 @@
           "Jaminan Uang Muka",
         "No PO": document.getElementById("editNomorPO").value || "-",
         "Currency": document.getElementById("editCurrency").value || "-",
-        "Nilai BG": document.getElementById("editNilaiBG").value || "0",
+        "Nilai BG": document.getElementById("editNilaiBG").value || "-",
         "Nama Vendor": document.getElementById("editNamaVendor").value || "-",
         "Tanggal Terbit BG": tglTerbitEditVal || "-",
         "Tanggal BG Expired": tglExpiredEditVal || "-",
@@ -963,7 +966,7 @@
 
       if (error) {
         console.error("Gagal update BG di Supabase:", error);
-        alert("Gagal mengubah data di server:\n" + (error.message || JSON.stringify(error)));
+        alert("Gagal mengubah data di server.");
         return;
       }
 
@@ -981,6 +984,7 @@
       }
       const kode = bgData[index]["Kode Unik"];
 
+      // Hapus di Supabase: bg_return dulu, lalu bg_master
       const { error: errRet } = await sb
         .from("bg_return")
         .delete()
@@ -995,10 +999,11 @@
         .eq("kode_unik", kode);
       if (errMas) {
         console.error("Gagal hapus BG di Supabase:", errMas);
-        alert("Gagal menghapus data BG di server:\n" + (errMas.message || JSON.stringify(errMas)));
+        alert("Gagal menghapus data BG di server.");
         return;
       }
 
+      // Hapus lokal
       bgData.splice(index, 1);
       bgReturnData = bgReturnData.filter((r) => r["Kode Unik"] !== kode);
       renderTable();
@@ -1044,7 +1049,7 @@
                 d["Jenis Bank Garansi"] || "Jaminan Uang Muka",
               "No PO": d["No PO"] || "-",
               "Currency": d["Currency"] || "-",
-              "Nilai BG": d["Nilai BG"] ?? "0",
+              "Nilai BG": d["Nilai BG"] || "-",
               "Nama Vendor": d["Nama Vendor"] || "-",
               "Tanggal Terbit BG": excelDateToString(
                 d["Tanggal Terbit BG"]
@@ -1065,8 +1070,9 @@
         if (wsRetur) {
           const dataRetur = XLSX.utils.sheet_to_json(wsRetur);
           dataRetur.forEach((r) => {
-            if (!r["Kode Unik"]) return;
+            if (!r["Kode Unik"]) return; // skip kalau datanya aneh
 
+            // cari BG dasar-nya untuk sync nilai terbaru kalau ada
             const bg = bgData.find(
               (d) => d["Kode Unik"] === r["Kode Unik"]
             );
@@ -1079,12 +1085,12 @@
               "Nama Bank":
                 r["Nama Bank"] || (bg ? bg["Nama Bank"] : "-"),
               "Currency": r["Currency"] || (bg ? bg["Currency"] : "-"),
-              "Nilai BG": r["Nilai BG"] ?? (bg ? bg["Nilai BG"] : "0"),
+              "Nilai BG": r["Nilai BG"] || (bg ? bg["Nilai BG"] : "-"),
               "Tanggal BG Expired":
                 r["Tanggal BG Expired"] ||
                 (bg ? bg["Tanggal BG Expired"] : "-"),
               "Tanggal Pengembalian": r["Tanggal Pengembalian"] || "",
-              "Nilai Dikembalikan": r["Nilai Dikembalikan"] ?? "",
+              "Nilai Dikembalikan": r["Nilai Dikembalikan"] || "",
               "Keterangan Pengembalian":
                 r["Keterangan Pengembalian"] || "",
             };
@@ -1100,30 +1106,27 @@
 
             upsertReturnDB.push(mapReturnToDB(payloadLocal));
           });
-          renderReturnTable();
+          renderReturnTable(); // refresh tampilan rekap
         }
 
         // Kirim ke Supabase
         if (newBGForDB.length > 0) {
           const { error: errBG } = await sb
             .from("bg_master")
-            .upsert(newBGForDB, { onConflict: "kode_unik" });
-
+            .insert(newBGForDB);
           if (errBG) {
             console.error("Gagal import BG ke Supabase:", errBG);
-            alert("Sebagian data BG gagal dikirim ke server:\n" +
-                  (errBG.message || JSON.stringify(errBG)));
+            alert("Sebagian data BG gagal dikirim ke server.");
           }
         }
 
         if (upsertReturnDB.length > 0) {
           const { error: errRet } = await sb
             .from("bg_return")
-            .upsert(upsertReturnDB, { onConflict: "kode_unik" });
+            .upsert(upsertReturnDB);
           if (errRet) {
             console.error("Gagal import retur ke Supabase:", errRet);
-            alert("Sebagian data pengembalian gagal dikirim ke server:\n" +
-                  (errRet.message || JSON.stringify(errRet)));
+            alert("Sebagian data pengembalian gagal dikirim ke server.");
           }
         }
 
@@ -1137,12 +1140,15 @@
     document.getElementById("exportExcel").addEventListener("click", () => {
       const wb = XLSX.utils.book_new();
 
+      // Sheet 1: Data BG utama
       const wsBG = XLSX.utils.json_to_sheet(bgData || []);
       XLSX.utils.book_append_sheet(wb, wsBG, "DataBG");
 
+      // Sheet 2: Rekap Pengembalian BG
       const wsRetur = XLSX.utils.json_to_sheet(bgReturnData || []);
       XLSX.utils.book_append_sheet(wb, wsRetur, "RekapPengembalian");
 
+      // Nama file tetap sama
       XLSX.writeFile(wb, "export_bg.xlsx");
     });
 
@@ -1150,7 +1156,7 @@
       .getElementById("filterStatus")
       .addEventListener("change", () => renderTable());
 
-    // Backup data JSON button
+    // Backup data JSON button (masih pakai bgData yang sudah sinkron server)
     const backupBtn = document.createElement("button");
     backupBtn.className = "btn btn-sm btn-outline-secondary ms-2";
     backupBtn.innerHTML = '<i class="bi bi-save"></i> Backup Data JSON';
@@ -1183,6 +1189,7 @@
     // Hapus Semua Data (server + lokal)
     document.getElementById("clearAllBtn").addEventListener("click", async () => {
       if (confirm("Hapus semua data permanen (BG & pengembalian) di server dan tampilan?")) {
+        // Hapus di Supabase
         const { error: errRet } = await sb
           .from("bg_return")
           .delete()
@@ -1197,10 +1204,10 @@
           .neq("kode_unik", "");
         if (errMas) {
           console.error("Gagal hapus semua BG:", errMas);
-          alert("Sebagian data BG gagal dihapus dari server:\n" +
-                (errMas.message || JSON.stringify(errMas)));
+          alert("Sebagian data BG gagal dihapus dari server.");
         }
 
+        // Hapus lokal & localStorage
         bgData = [];
         bgReturnData = [];
         localStorage.removeItem("bgData");
@@ -1210,7 +1217,7 @@
       }
     });
 
-    // Submit form pengembalian
+    // Submit form pengembalian (simpan juga ke Supabase)
     const returnForm = document.getElementById("returnForm");
     if (returnForm) {
       returnForm.addEventListener("submit", async (e) => {
@@ -1253,15 +1260,15 @@
           bgReturnData.push(payloadLocal);
         }
 
+        // Simpan/Update ke Supabase
         const payloadDB = mapReturnToDB(payloadLocal);
         const { error } = await sb
           .from("bg_return")
-          .upsert(payloadDB, { onConflict: "kode_unik" });
+          .upsert(payloadDB);
 
         if (error) {
           console.error("Gagal simpan pengembalian ke Supabase:", error);
-          alert("Gagal menyimpan data pengembalian ke server:\n" +
-                (error.message || JSON.stringify(error)));
+          alert("Gagal menyimpan data pengembalian ke server.");
         }
 
         renderReturnTable();
@@ -1270,10 +1277,11 @@
       });
     }
 
-    // Sorting table columns
-    let sortDir = {};
+    // Sorting table columns on header click (ASC/DESC toggle, kecuali kolom Aksi)
+    let sortDir = {}; // true = ASC, false = DESC
     const headerCells = document.querySelectorAll("#bgTable thead th");
     headerCells.forEach((th, idx) => {
+      // index 12 = kolom Aksi
       if (idx === 12) return;
       th.style.cursor = "pointer";
       th.addEventListener("click", () => {
@@ -1295,7 +1303,7 @@
         const key = keyMap[idx];
         if (!key) return;
 
-        sortDir[idx] = !sortDir[idx];
+        sortDir[idx] = !sortDir[idx]; // toggle
         const asc = sortDir[idx];
 
         bgData.sort((a, b) => {
@@ -1328,14 +1336,14 @@
       });
     });
 
-    // INITIAL LOAD
+    // INITIAL LOAD: ambil data dari Supabase lalu render
     async function initialLoad() {
       await loadBGFromSupabase();
       await loadReturnFromSupabase();
       renderTable();
       renderReturnTable();
       notifyExpiredSoon();
-      setInterval(notifyExpiredSoon, 3600000);
+      setInterval(notifyExpiredSoon, 3600000); // cek tiap jam
     }
 
     initialLoad();
