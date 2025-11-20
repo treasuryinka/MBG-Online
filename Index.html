@@ -432,7 +432,12 @@
       jenis_bg: d["Jenis Bank Garansi"],
       no_po: d["No PO"],
       currency: d["Currency"],
-      nilai_bg: Number(d["Nilai BG"] || 0),
+      let rawNilai = d["Nilai BG"];
+if (typeof rawNilai === "string") {
+  rawNilai = rawNilai.replace(/\./g, "").replace(/,/g, "");
+}
+const nilaiNum = Number(rawNilai);
+nilai_bg: Number.isFinite(nilaiNum) ? nilaiNum : 0,
       nama_vendor: d["Nama Vendor"],
       tgl_terbit: d["Tanggal Terbit BG"],
       tgl_expired: d["Tanggal BG Expired"],
@@ -1027,7 +1032,12 @@
               d["Jenis Bank Garansi"] || "Jaminan Uang Muka",
             "No PO": d["No PO"] || "-",
             "Currency": d["Currency"] || "-",
-            "Nilai BG": d["Nilai BG"] || 0,
+            let nilaiRaw = d["Nilai BG"];
+if (typeof nilaiRaw === "string") {
+  nilaiRaw = nilaiRaw.replace(/\./g, "").replace(/,/g, "");
+}
+const nilaiNum = Number(nilaiRaw);
+"Nilai BG": Number.isFinite(nilaiNum) ? nilaiNum : 0,
             "Nama Vendor": d["Nama Vendor"] || "-",
             "Tanggal Terbit BG": excelDateToString(
               d["Tanggal Terbit BG"]
@@ -1090,14 +1100,14 @@
       // Kirim ke Supabase
       if (newBGForDB.length > 0) {
         const { error: errBG } = await sb
-          .from("bg_master")
-          .insert(newBGForDB);
-        if (errBG) {
-          console.error("Gagal import BG ke Supabase:", errBG);
-          alert("Sebagian data BG gagal dikirim ke server.");
-        }
-      }
+    .from("bg_master")
+    .insert(newBGForDB);
 
+  if (errBG) {
+    console.error("Gagal import BG ke Supabase:", errBG);
+    alert("Gagal import BG ke server:\n" + (errBG.message || JSON.stringify(errBG)));
+  }
+}
       if (upsertReturnDB.length > 0) {
         const { error: errRet } = await sb
           .from("bg_return")
@@ -1328,3 +1338,4 @@
 </script>
 </body>
 </html>
+
