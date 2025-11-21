@@ -178,6 +178,7 @@
           <option value="aktif">Aktif</option>
           <option value="akan">Akan Expired</option>
           <option value="expired">Expired</option>
+	  <option value="returned">Dikembalikan</option>
         </select>
       </div>
       <div>
@@ -719,6 +720,7 @@
         if (filter == "aktif") filterPass = stDisplay == "Aktif";
         else if (filter == "akan") filterPass = stDisplay == "Akan Expired";
         else if (filter == "expired") filterPass = stDisplay == "Expired";
+	else if (filter == "returned") filterPass = stDisplay == "Dikembalikan";
         // status "Dikembalikan" hanya muncul di "Semua Status"
 
         // Search di semua kolom
